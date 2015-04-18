@@ -1,12 +1,30 @@
 #lang racket/gui
 (require sgl
          sgl/gl
-         sgl/gl-vectors)
+         sgl/gl-vectors
+         rsound 
+         racket/runtime-path)
 
 ; Constants
 (define F_WIDTH 600)
 (define F_HEIGHT 600)
 (define GRID_SIZE 15)
+(define NEIGHBORS '((0 -1) (1 -1) (1 0) (1 1) (0 1) (-1 1) (-1 0) (-1 -1)))
+(define nil '())
+
+(define-runtime-path demos "demos")
+(define song (rs-read (build-path demos "Guitar.C4E4.wav")))
+(define Sample-rate 44100.0)
+(define (s sec) (* sec Sample-rate))
+
+(define n1 (clip song (s 0) (s 1)))
+(define n2 (clip song (s 9) (s 10)))
+(define n3 (clip song (s 19) (s 20)))
+(define n4 (clip song (s 25) (s 26)))
+(define n5 (clip song (s 31) (s 32)))
+(define clips (list n1 n2 n3 n4 n5))
+
+; Globals
 (define TILE_SIZE (/ F_HEIGHT GRID_SIZE))
 (define GRID_OFF (/ (abs (- F_WIDTH F_HEIGHT)) 2))
 (define A_TIMER 0)
@@ -46,16 +64,42 @@
     (define myRow row)
     (define myCol col)
     (define canWalk walkable)
+    (define parent nil)
+    
+    (define F 0)
+    (define G 0)
+    (define H 0)
     
     ; Field getters/setters.
     (define/public (getRow)
       myRow)
     (define/public (getCol)
       myCol)
+    
     (define/public (isWalkable)
       canWalk)
     (define/public (setWalk v)
       (set! canWalk v))
+    
+    (define/public (hasParent)
+      (not (equal? parent nil)))
+    (define/public (getParent)
+      parent)
+    (define/public (setParent p)
+      (set! parent p))
+    
+    (define/public (getF)
+      F)
+    (define/public (setF f)
+      (set! F f))
+    (define/public (getG)
+      G)
+    (define/public (setG g)
+      (set! G g))
+    (define/public (getH)
+      H)
+    (define/public (setH h)
+      (set! H h))
     
     ; Other fun stuff.
     (define/public (draw)
@@ -104,6 +148,15 @@
 ; Define the player's current position. Subject to change throughout execution.
 (define player (cons 3 4))
 
+; Define the A* search function.
+(define search
+  (let ([open '()]
+        [closed '()])
+    (append open (list (get (car start) (cdr start)))) ; Add the start position to the open list.
+    (define searchLoop                                 ; While there are tiles in the open list.
+      #f)
+    searchLoop))
+
 ; Helper function for drawing tiles at a given row and column.
 (define (drawTile r c)
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (* r TILE_SIZE) 0.0)
@@ -111,18 +164,23 @@
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (+ (* r TILE_SIZE) TILE_SIZE) 0.0)
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (+ (* r TILE_SIZE) TILE_SIZE) 0.0))
 
+; Used to move the player around the grid.
+(define (move rOff cOff)
+  (set! player (cons (+ (car player) rOff) (+ (cdr player) cOff)))
+  (play (list-ref clips (random (- 4 0)))))
+
 ; Called after the window renders. Used to update objects.
 (define (update)
-  (if (>= A_TIMER 1)
+  (if (>= A_TIMER 1/2)
       (begin (set! A_TIMER 0)
-             (cond ((< (car player) (car goal)) 
-                    (set! player (cons (+ (car player) 1) (cdr player))))
+             (cond ((< (car player) (car goal))
+                    (move 1 0))  ; Move down.
                    ((> (car player) (car goal))
-                    (set! player (cons (- (car player) 1) (cdr player))))
+                    (move -1 0)) ; Move up.
                    ((< (cdr player) (cdr goal))
-                    (set! player (cons (car player) (+ (cdr player) 1))))
+                    (move 0 1))  ; Move right.
                    ((> (cdr player) (cdr goal))
-                    (set! player (cons (car player) (- (cdr player) 1))))
+                    (move 0 -1)) ; Move left.
                    (else #f)))
       (set! A_TIMER (+ A_TIMER 1/60))))
 
