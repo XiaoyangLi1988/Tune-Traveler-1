@@ -30,6 +30,7 @@
 (define TILE_SIZE (/ F_HEIGHT GRID_SIZE))
 (define GRID_OFF (/ (abs (- F_WIDTH F_HEIGHT)) 2))
 (define A_TIMER 0)
+(define PATH '())
 
 ; Define the start and end position.
 (define start (cons 3 4))
@@ -177,28 +178,35 @@
 (define search
   (let ([open '()]
         [closed '()])
-    (set! open (append open (list ((get (car start) (cdr start)) GRID)))) ; Add the start position to the open list.
+    (set! open (append open (list ((get (cdr start) (car start)) GRID)))) ; Add the start position to the open list.
     (let searchLoop ()
       (let ([current nil])
         (set! current (car open))                  ; Get the current tile.
         (append closed (list current))             ; Add it to the closed list, since it has now been traversed.
         (set! open (remove current open))          ; Remove it from the open list.
-        (if (and (= (send current getRow) (car goal))               ; If the current row is the goal row...
-                 (= (send current getCol) (cdr goal)))              ; ...and the current column is the goal column...
+        (if (and (= (send current getRow) (cdr goal))               ; If the current row is the goal row...
+                 (= (send current getCol) (car goal)))              ; ...and the current column is the goal column...
             #f                                                      ; ...break out of the search.
             (let ([neighbors (getNeighbors current)])        ; Get the current tile's neighbors.
               (map (lambda (t) 
                      (unless (member t closed)               ; As long as this tile isn't a member of the closed list...
                        (if (not (member t open))
                            (begin (send t setG (compG current t)) ; compute F, G and H, and set parent
-                                  (send t setH (compH t ((get (car goal) (cdr goal)) GRID)))
+                                  (send t setH (compH t ((get (cdr goal) (car goal)) GRID)))
                                   (send t setF (compF (send t getG) (send t getH)))
                                   (send t setParent current)
                                   (set! open (append open (list t)))) ; then add it to the open list
                            (begin (display "Do this later.")) ; test if using the current G score make the aSquare F score lower, if yes update the parent because it means its a better path
                            ))) 
                    neighbors)))
-        (when (= (length open) 0) (searchLoop))))))
+        (when (= (length open) 0) (searchLoop))
+        ; Retrace the parents starting at the goal to find the path. Add them to the PATH list.
+        (set! current ((get (cdr goal) (car goal)) GRID))
+        (set! PATH (append PATH (list current)))
+        (let pathfind ()
+          (set! current (send current getParent))
+          (set! PATH (append PATH (list current)))
+          (unless (equal? current ((get (cdr start) (car start)) GRID)) (pathfind)))))))
 
 ; Helper function for drawing tiles at a given row and column.
 (define (drawTile r c)
