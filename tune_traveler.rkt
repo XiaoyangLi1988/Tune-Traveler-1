@@ -119,10 +119,10 @@
       (cond ((not canWalk)
              (begin (glColor3f 0.4 0.4 0.4)   ; If this is a wall, make the color of the tile gray.
                     (drawTile myRow myCol)))
-            ((and (= myRow (car start)) (= myCol (cdr start)))
+            ((and (= myRow (cdr start)) (= myCol (car start)))
              (begin (glColor3f 0.0 1.0 0.0)   ; If this is the start tile, make the color green.
                     (drawTile myRow myCol)))
-            ((and (= myRow (car goal)) (= myCol (cdr goal)))
+            ((and (= myRow (cdr goal)) (= myCol (car goal)))
              (begin (glColor3f 1.0 0.0 0.0)   ; If this is the goal tile, make the color red.
                     (drawTile myRow myCol)))
             (else #f)))))
@@ -165,10 +165,10 @@
   (let ([ne '()])
     ; Use the offsets defined in NEIGHBORS to get the tiles around the current tile.
     (map (lambda (p)
-           (let ([a (get (+ (send t getRow) (car p)) (+ (send t getCol) (cdr p)))])
+           (let ([a ((get (+ (send t getRow) (car p)) (+ (send t getCol) (cadr p))) GRID)])
              ; Only get the walkable tiles.
              (if (send a isWalkable)
-                 (set! ne (append ne a))
+                 (set! ne (append ne (list a)))
                  #f)))
          NEIGHBORS)
     ne))
@@ -177,7 +177,7 @@
 (define search
   (let ([open '()]
         [closed '()])
-    (set! open (append open (list (get (car start) (cdr start))))) ; Add the start position to the open list.
+    (set! open (append open (list ((get (car start) (cdr start)) GRID)))) ; Add the start position to the open list.
     (let searchLoop ()
       (let ([current nil])
         (set! current (car open))                  ; Get the current tile.
@@ -191,7 +191,7 @@
                      (unless (member t closed)               ; As long as this tile isn't a member of the closed list...
                        (if (not (member t open))
                            (begin (send t setG (compG current t)) ; compute F, G and H, and set parent
-                                  (send t setH (compH t (get (car goal) (cdr goal))))
+                                  (send t setH (compH t ((get (car goal) (cdr goal)) GRID)))
                                   (send t setF (compF (send t getG) (send t getH)))
                                   (send t setParent current)
                                   (set! open (append open (list t)))) ; then add it to the open list
