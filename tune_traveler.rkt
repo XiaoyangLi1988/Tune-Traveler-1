@@ -12,11 +12,13 @@
 (define NEIGHBORS '((0 -1) (1 -1) (1 0) (1 1) (0 1) (-1 1) (-1 0) (-1 -1)))
 (define nil '())
 
+; Setup the sound settings and load the guitar sounds.
 (define-runtime-path demos "demos")
 (define song (rs-read (build-path demos "Guitar.C4E4.wav")))
 (define Sample-rate 44100.0)
 (define (s sec) (* sec Sample-rate))
 
+; The following are some pre-defined guitar sounds.
 (define n1 (clip song (s 0) (s 1)))
 (define n2 (clip song (s 9) (s 10)))
 (define n3 (clip song (s 19) (s 20)))
@@ -29,6 +31,13 @@
 (define GRID_OFF (/ (abs (- F_WIDTH F_HEIGHT)) 2))
 (define A_TIMER 0)
 
+; Define the start and end position.
+(define start (cons 3 4))
+(define goal (cons 10 9))
+
+; Define the player's current position. Subject to change throughout execution.
+(define player (cons 3 4))
+
 ; Resize the display window.
 (define (resize w h)
   (glViewport 0 0 w h)
@@ -37,21 +46,25 @@
   (set! TILE_SIZE (/ F_HEIGHT GRID_SIZE))
   (set! GRID_OFF (/ (abs (- F_WIDTH F_HEIGHT)) 2)))
 
-; Compute F = G + H
+; Compute G score. (14 if moving from the current tile to this one requires a diagonal movement, 10 otherwise)
 (define (compG p t)
-  (let ([xOff (- (send t getCol) (send p getCol))]
-        [yOff (- (send t getRow) (send p getRow))])
+  (let ([xOff (- (send t getCol) (send p getCol))]   ; The column offset between the two tiles.
+        [yOff (- (send t getRow) (send p getRow))])  ; The row offset between the two tiles.
     (define (cg)
       (if (and (not (= xOff 0)) (not (= yOff 0)))
-          14
-          10))
+          14     ; If the movement from the current tile to this neighbor is a diagonal one, the cost is 14...
+          10))   ; ...otherwise, its cost is 10.
     (cg)))
+
+; Compute H score. ((vertical offset + horizontal offset) * 10)
 (define (compH t e)
-  (let ([xOff (abs (- (send t getCol) (send e getCol)))]
-        [yOff (abs (- (send t getRow) (send e getRow)))])
+  (let ([xOff (abs (- (send t getCol) (send e getCol)))]   ; Horizontal offset from goal tile.
+        [yOff (abs (- (send t getRow) (send e getRow)))])  ; Vertical offset from goal tile.
     (define (ch)
-      (* (+ xOff yOff) 10))
+      (* (+ xOff yOff) 10))   ; Multiply the sum of the two offsets by 10 to get the H score.
     (ch)))
+
+; Compute F score. (G score + H score)
 (define (compF g h)
   (+ g h))
 
@@ -61,14 +74,14 @@
     (init row col walkable)
     (super-new)
     
-    (define myRow row)
-    (define myCol col)
-    (define canWalk walkable)
-    (define parent nil)
+    (define myRow row)        ; The row that this tile is in.
+    (define myCol col)        ; The column that this tile is in.
+    (define canWalk walkable) ; Can the "player" traverse this tile?
+    (define parent nil)       ; Used to determine which tile this tile was a neighbor of.
     
-    (define F 0)
-    (define G 0)
-    (define H 0)
+    (define F 0)              ; This particular tiles F score. (G+H)
+    (define G 0)              ; This tile's G score. (10 or 14, depending on movement to get to this tile)
+    (define H 0)              ; This tile's H score. ((vertical offset + horizontal offset) * 10)
     
     ; Field getters/setters.
     (define/public (getRow)
@@ -101,10 +114,16 @@
     (define/public (setH h)
       (set! H h))
     
-    ; Other fun stuff.
+    ; Draws the appropriate color for the tile.
     (define/public (draw)
       (cond ((not canWalk)
-             (begin (glColor3f 0.4 0.4 0.4)
+             (begin (glColor3f 0.4 0.4 0.4)   ; If this is a wall, make the color of the tile gray.
+                    (drawTile myRow myCol)))
+            ((and (= myRow (car start)) (= myCol (cdr start)))
+             (begin (glColor3f 0.0 1.0 0.0)   ; If this is the start tile, make the color green.
+                    (drawTile myRow myCol)))
+            ((and (= myRow (car goal)) (= myCol (cdr goal)))
+             (begin (glColor3f 1.0 0.0 0.0)   ; If this is the goal tile, make the color red.
                     (drawTile myRow myCol)))
             (else #f)))))
 
@@ -135,61 +154,85 @@
 (define GRID (createGrid GRID_SIZE GRID_SIZE))
 
 ; Create walls around the grid.
-(begin (for ([i GRID_SIZE])
-         (send ((get 0 i) GRID) setWalk #f)
-         (send ((get (- GRID_SIZE 1) i) GRID) setWalk #f)
-         (send ((get i 0) GRID) setWalk #f)
-         (send ((get i (- GRID_SIZE 1)) GRID) setWalk #f)))
+(for ([i GRID_SIZE])
+  (send ((get 0 i) GRID) setWalk #f)
+  (send ((get (- GRID_SIZE 1) i) GRID) setWalk #f)
+  (send ((get i 0) GRID) setWalk #f)
+  (send ((get i (- GRID_SIZE 1)) GRID) setWalk #f))
 
-; Define the start and end position.
-(define start (cons 3 4))
-(define goal (cons 10 9))
-
-; Define the player's current position. Subject to change throughout execution.
-(define player (cons 3 4))
+; Get the neighbors of the given tile.
+(define (getNeighbors t)
+  (let ([ne '()])
+    ; Use the offsets defined in NEIGHBORS to get the tiles around the current tile.
+    (map (lambda (p)
+           (let ([a (get (+ (send t getRow) (car p)) (+ (send t getCol) (cdr p)))])
+             ; Only get the walkable tiles.
+             (if (send a isWalkable)
+                 (set! ne (append ne a))
+                 #f)))
+         NEIGHBORS)
+    ne))
 
 ; Define the A* search function.
 (define search
   (let ([open '()]
         [closed '()])
-    (append open (list (get (car start) (cdr start)))) ; Add the start position to the open list.
-    (define searchLoop                                 ; While there are tiles in the open list.
-      #f)
-    searchLoop))
+    (set! open (append open (list (get (car start) (cdr start))))) ; Add the start position to the open list.
+    (let searchLoop ()
+      (let ([current nil])
+        (set! current (car open))                  ; Get the current tile.
+        (append closed (list current))             ; Add it to the closed list, since it has now been traversed.
+        (set! open (remove current open))          ; Remove it from the open list.
+        (if (and (= (send current getRow) (car goal))               ; If the current row is the goal row...
+                 (= (send current getCol) (cdr goal)))              ; ...and the current column is the goal column...
+            #f                                                      ; ...break out of the search.
+            (let ([neighbors (getNeighbors current)])        ; Get the current tile's neighbors.
+              (map (lambda (t) 
+                     (unless (member t closed)               ; As long as this tile isn't a member of the closed list...
+                       (if (not (member t open))
+                           (begin (send t setG (compG current t)) ; compute F, G and H, and set parent
+                                  (send t setH (compH t (get (car goal) (cdr goal))))
+                                  (send t setF (compF (send t getG) (send t getH)))
+                                  (send t setParent current)
+                                  (set! open (append open (list t)))) ; then add it to the open list
+                           (begin (display "Do this later.")) ; test if using the current G score make the aSquare F score lower, if yes update the parent because it means its a better path
+                           ))) 
+                   neighbors)))
+        (when (= (length open) 0) (searchLoop))))))
 
 ; Helper function for drawing tiles at a given row and column.
 (define (drawTile r c)
-  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (* r TILE_SIZE) 0.0)
-  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (* r TILE_SIZE) 0.0)
-  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (+ (* r TILE_SIZE) TILE_SIZE) 0.0)
-  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (+ (* r TILE_SIZE) TILE_SIZE) 0.0))
+  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (* r TILE_SIZE) 0.0)                           ; Draw the vertex at the top-left of the box.
+  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (* r TILE_SIZE) 0.0)                 ; Draw the vertex at the top-right of the box.
+  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (+ (* r TILE_SIZE) TILE_SIZE) 0.0)   ; Draw the vertex at the bottom-right of the box.
+  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (+ (* r TILE_SIZE) TILE_SIZE) 0.0))            ; Draw the vertex at the bottom-left of the box.
 
 ; Used to move the player around the grid.
 (define (move rOff cOff)
-  (set! player (cons (+ (car player) rOff) (+ (cdr player) cOff)))
-  (play (list-ref clips (random (- 4 0)))))
+  (set! player (cons (+ (car player) rOff) (+ (cdr player) cOff)))   ; Modifies the player's position to reflect the specified movement.
+  (play (list-ref clips (random 4))))                                ; Plays one of the guitar sound clips.
 
 ; Called after the window renders. Used to update objects.
 (define (update)
-  (if (>= A_TIMER 1/2)
-      (begin (set! A_TIMER 0)
-             (cond ((< (car player) (car goal))
+  (if (>= A_TIMER 1/2)                          ; We want the player to move every 0.5 seconds, so the timer stops at 1/2 second and then acts.
+      (begin (set! A_TIMER 0)                   ; Reset the timer, then check to see where the player is and move accordingly.
+             (cond ((< (car player) (car goal)) ; If the player is above the goal, move them one down.
                     (move 1 0))  ; Move down.
-                   ((> (car player) (car goal))
+                   ((> (car player) (car goal)) ; If the player is below the goal, move them one up.
                     (move -1 0)) ; Move up.
-                   ((< (cdr player) (cdr goal))
+                   ((< (cdr player) (cdr goal)) ; If the player is to the left of the goal, move them one to the right.
                     (move 0 1))  ; Move right.
-                   ((> (cdr player) (cdr goal))
+                   ((> (cdr player) (cdr goal)) ; If the player is to the right of the goal, move them one to the left.
                     (move 0 -1)) ; Move left.
                    (else #f)))
-      (set! A_TIMER (+ A_TIMER 1/60))))
+      (set! A_TIMER (+ A_TIMER 1/60))))         ; If a half a second hasn't gone by yet, add the time delay to the timer.
 
 ; Render everything to the frame.
 (define (draw-gl)
   ; Clear the screen and draw a blank black background.
   (glClearColor 0.0 0.0 0.0 0.0)
   (glClear GL_COLOR_BUFFER_BIT)
- 
+  
   (glShadeModel GL_SMOOTH)
   
   ; Create an orthogonal projection that draws from the top-left to the bottom-right.
@@ -209,14 +252,6 @@
   
   ; Draw the start and end position squares, as well as the player.
   (glBegin GL_QUADS)
-  
-  ; Start
-  (glColor3f 0.0 1.0 0.0)
-  (drawTile (cdr start) (car start))
-  
-  ; End
-  (glColor3f 1.0 0.0 0.0)
-  (drawTile (cdr goal) (car goal))
   
   ; Draw the "player". Can't be reduced with call to drawTile because of varying offsets to draw position.
   (define r (cdr player))
@@ -258,7 +293,7 @@
     (define/public (STEP)
       (update)
       (refresh)
-      (sleep/yield 1/60)
+      (sleep/yield 1/60)   ; Sleeps the program for 1/60 of a second. This is the "delay" between updates.
       (queue-callback (lambda _ (send this STEP)) #f))
     
     ; Used to call the draw function.
@@ -272,9 +307,9 @@
     (super-instantiate () (style '(gl)))))
 
 (define win (new frame% [label "Tune Traveler"]
-                        [min-width F_WIDTH] 
-                        [min-height F_HEIGHT]))
+                 [min-width F_WIDTH] 
+                 [min-height F_HEIGHT]))
 (define gl  (new my-canvas% [parent win]))
- 
+
 (send win show #t)
 (send gl STEP)
