@@ -8,14 +8,6 @@
 (require "constants.rkt")
 (require "tile.rkt")
 
-; Used to access elements of a one-dimensional array representing a two-dimensional array.
-(define (get row col)
-  (cond ((or (> row (- GRID_SIZE 1)) (< row 0)) (error "Row out of bounds!"))
-        ((or (> col (- GRID_SIZE 1)) (< col 0)) (error "Column out of bounds!")))
-  (define (h li)
-    (list-ref li (+ (* row GRID_SIZE) col)))
-  h)
-
 ; Used to create a one-dimensional array that represents a two-dimensional array.
 (define (createGrid rows cols)
   (let ([row 0]
@@ -41,78 +33,7 @@
   (send ((get i 0) GRID) setWalk #f)
   (send ((get i (- GRID_SIZE 1)) GRID) setWalk #f))
 
-; Get the neighbors of the given tile.
-(define (getNeighbors t)
-  (let ([ne '()])
-    ; Use the offsets defined in NEIGHBORS to get the tiles around the current tile.
-    (map (lambda (p)
-           (let ([a ((get (+ (send t getRow) (car p)) (+ (send t getCol) (cadr p))) GRID)])
-             ; Only get the walkable tiles.
-             (if (send a isWalkable)
-                 (set! ne (append ne (list a)))
-                 #f)))
-         NEIGHBORS)
-    ne))
-
-; Define the A* search function.
-;(define search
-;  (let ([open '()]
-;        [closed '()])
-;    (set! open (append open (list ((get (cdr start) (car start)) GRID)))) ; Add the start position to the open list.
-;    (let searchLoop ()
-;      (let ([current nil])
-;        (set! current (car open))                  ; Get the current tile.
-;        (append closed (list current))             ; Add it to the closed list, since it has now been traversed.
-;        (set! open (remove current open))          ; Remove it from the open list.
-;        (if (and (= (send current getRow) (cdr goal))               ; If the current row is the goal row...
-;                 (= (send current getCol) (car goal)))              ; ...and the current column is the goal column...
-;            #f                                                      ; ...break out of the search.
-;            (let ([neighbors (getNeighbors current)])        ; Get the current tile's neighbors.
-;              (map (lambda (t) 
-;                     (unless (member t closed)               ; As long as this tile isn't a member of the closed list...
-;                       (if (not (member t open))
-;                           (begin (send t setG (compG current t)) ; compute F, G and H, and set parent
-;                                  (send t setH (compH t ((get (cdr goal) (car goal)) GRID)))
-;                                  (send t setF (compF (send t getG) (send t getH)))
-;                                  (send t setParent current)
-;                                  (set! open (append open (list t)))) ; then add it to the open list
-;                           (begin (display "Do this later.")))))      ; test if using the current G score make the aSquare F score lower, if yes update the parent because it means its a better path
-;                   neighbors)))
-;        (when (= (length open) 0) (searchLoop))
-;        ; Retrace the parents starting at the goal to find the path. Add them to the PATH list.
-;        (set! current ((get (cdr goal) (car goal)) GRID))
-;        (set! PATH (append PATH (list current)))
-;        (let pathfind ()
-;          (set! current (send current getParent))
-;          (set! PATH (append PATH (list current)))
-;          (unless (equal? current ((get (cdr start) (car start)) GRID)) (pathfind))))))) 
-
-; Helper function for drawing tiles at a given row and column.
-;(define (drawTile r c)
-;  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (* r TILE_SIZE) 0.0)                           ; Draw the vertex at the top-left of the box.
-;  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (* r TILE_SIZE) 0.0)                 ; Draw the vertex at the top-right of the box.
-;  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE) (+ (* r TILE_SIZE) TILE_SIZE) 0.0)   ; Draw the vertex at the bottom-right of the box.
-;  (glVertex3f (+ (* c TILE_SIZE) GRID_OFF) (+ (* r TILE_SIZE) TILE_SIZE) 0.0))            ; Draw the vertex at the bottom-left of the box.
-
-;; Used to move the player around the grid.
-;(define (move rOff cOff)
-;  (set! player (cons (+ (car player) rOff) (+ (cdr player) cOff)))   ; Modifies the player's position to reflect the specified movement.
-;  (play (list-ref clips (random 4))))                                ; Plays one of the guitar sound clips.
-
-;; Called after the window renders. Used to update objects.
-;(define (update)
-;  (if (>= A_TIMER 1/2)                          ; We want the player to move every 0.5 seconds, so the timer stops at 1/2 second and then acts.
-;      (begin (set! A_TIMER 0)                   ; Reset the timer, then check to see where the player is and move accordingly.
-;             (cond ((< (car player) (car goal)) ; If the player is above the goal, move them one down.
-;                    (move 1 0))  ; Move down.
-;                   ((> (car player) (car goal)) ; If the player is below the goal, move them one up.
-;                    (move -1 0)) ; Move up.
-;                   ((< (cdr player) (cdr goal)) ; If the player is to the left of the goal, move them one to the right.
-;                    (move 0 1))  ; Move right.
-;                   ((> (cdr player) (cdr goal)) ; If the player is to the right of the goal, move them one to the left.
-;                    (move 0 -1)) ; Move left.
-;                   (else #f)))
-;      (set! A_TIMER (+ A_TIMER 1/60))))         ; If a half a second hasn't gone by yet, add the time delay to the timer.
+(search GRID ((get (cdr start) (car start)) GRID) ((get (cdr goal) (car goal)) GRID))
 
 ; Render everything to the frame.
 (define (draw-gl)
@@ -169,6 +90,14 @@
   (glVertex3f GRID_OFF F_HEIGHT 0.0)
   (glVertex3f (- F_WIDTH GRID_OFF) 0.0 0.0)
   (glVertex3f (- F_WIDTH GRID_OFF) F_HEIGHT 0.0)
+  (glEnd)
+  
+  ; Draw line from start to end.
+  (glColor3f 0.0 1.0 1.0)
+  (glBegin GL_LINE_STRIP)
+  (map (lambda (node)
+         (glVertex3f (send node getCol) (send node getRow) 0.0)) 
+       PATH)
   (glEnd))
 
 ; Contains methods for drawing to and updating the canvas on the screen.
