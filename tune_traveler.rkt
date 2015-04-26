@@ -7,6 +7,7 @@
 
 (require "constants.rkt")
 (require "tile.rkt")
+(require "levels.rkt")
 
 ; Used to create a one-dimensional array that represents a two-dimensional array.
 (define (createGrid rows cols)
@@ -26,18 +27,9 @@
 ; The grid that will hold the game objects.
 (define GRID (createGrid GRID_SIZE GRID_SIZE))
 
-; Create walls around the grid.
-(for ([i GRID_SIZE])
-  (send ((get 0 i) GRID) setWalk #f)
-  (send ((get (- GRID_SIZE 1) i) GRID) setWalk #f)
-  (send ((get i 0) GRID) setWalk #f)
-  (send ((get i (- GRID_SIZE 1)) GRID) setWalk #f))
-
-; Create a wall for the algorithm to find its way around.
-(map (lambda (row)
-       (send ((get row 6) GRID) setWalk #f)) 
-     '(4 5 6 7 8 9))
-
+; Define the level to use for the algorithm.
+(buildMap GRID (list-ref maps 1))
+; Call the search algorithm to generate the path.
 (search GRID ((get (cdr start) (car start)) GRID) ((get (cdr goal) (car goal)) GRID))
 
 ; Render everything to the frame.

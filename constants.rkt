@@ -17,26 +17,49 @@
 (define PATH '())
 (define PATH-POS 0)
 
+
 ; Setup the sound settings and load the guitar sounds.
 (define-runtime-path demos "demos")
-(define song (rs-read (build-path demos "Guitar.C4E4.wav")))
+(define song1 (rs-read (build-path demos "1st_String_E_64kb.wav")))
+(define song2 (rs-read (build-path demos "2nd_String_B__64kb.wav")))
+(define song3 (rs-read (build-path demos "3rd_String_G_64kb.wav")))
+(define song4 (rs-read (build-path demos "4th_String_D_64kb.wav")))
+(define song5 (rs-read (build-path demos "5th_String_A_64kb.wav")))
+(define song6 (rs-read (build-path demos "6th_String_E_64kb.wav")))
+(define song7 (rs-read (build-path demos "C_64kb.wav")))
+(define song8 (rs-read (build-path demos "D_64kb.wav")))
+(define song9 (rs-read (build-path demos "Dm_64kb.wav")))
+(define song10 (rs-read (build-path demos "E_64kb.wav")))
 (define Sample-rate 44100.0)
 (define (s sec) (* sec Sample-rate))
 
 ; The following are some pre-defined guitar sounds.
-(define n1 (clip song (s 0) (s 1)))
-(define n2 (clip song (s 9) (s 10)))
-(define n3 (clip song (s 19) (s 20)))
-(define n4 (clip song (s 25) (s 26)))
-(define n5 (clip song (s 31) (s 32)))
-(define clips (list n1 n2 n3 n4 n5))
+(define s1 (clip song1 (s 2) (s 4)))
+(define s2 (clip song2 (s 2) (s 4)))
+(define s3 (clip song3 (s 2) (s 4)))
+(define s4 (clip song4 (s 2) (s 4)))
+(define s5 (clip song5 (s 2) (s 4)))
+(define s6 (clip song6 (s 2) (s 4)))
+(define s7 (clip song7 (s 1.5) (s 3.5)))
+(define s8 (clip song8 (s 1) (s 3)))
+(define s9 (clip song9 (s 1) (s 3)))
+(define s10 (clip song10 (s 1) (s 3)))
+
+(define clips (list s1 s2 s3 s4 s5 s6 s7 s8 s9 s10))
 
 ; Define the start and end position.
-(define start (cons 3 4))
-(define goal (cons 10 9))
+(define start (cons 0 0))
+(define (moveStart row col)
+  (set! start (cons col row)))
+
+(define goal (cons 0 0))
+(define (moveGoal row col)
+  (set! goal (cons col row)))
 
 ; Define the player's current position. Subject to change throughout execution.
-(define player (cons 3 4))
+(define player (cons 0 0))
+(define (movePlayer row col)
+  (set! player (cons col row)))
 
 ; Resize the display window.
 (define (resize w h)
@@ -68,6 +91,15 @@
 (define (compF g h)
   (+ g h))
 
+; Checks if the given row and column are within range of the grid.
+(define (validRowCol? row col)
+  (if (or (< row 0)
+          (> row (- GRID_SIZE 1))
+          (< col 0)
+          (> col (- GRID_SIZE 1)))
+      #f
+      #t))
+
 ; Used to access elements of a one-dimensional array representing a two-dimensional array.
 (define (get row col)
   (cond ((or (> row (- GRID_SIZE 1)) (< row 0)) (error "Row out of bounds!"))
@@ -81,10 +113,11 @@
   (let ([ne '()])
     ; Use the offsets defined in NEIGHBORS to get the tiles around the current tile.
     (map (lambda (p)
-           (let ([a ((get (+ (send t getRow) (car p)) (+ (send t getCol) (cadr p))) GRID)])
+           (let ([a (cons (+ (send t getRow) (car p)) (+ (send t getCol) (cadr p)))])
              ; Only get the walkable tiles.
-             (when (send a isWalkable)
-               (set! ne (append ne (list a))))))
+             (when (and (validRowCol? (car a) (cdr a))
+                        (send ((get (car a) (cdr a)) GRID) isWalkable))
+               (set! ne (append ne (list ((get (car a) (cdr a)) GRID)))))))
          NEIGHBORS)
     ne))
 
@@ -165,7 +198,7 @@
 
 ; Called after the window renders. Used to update objects.
 (define (update)
-  (if (>= A_TIMER 1/2)                          ; We want the player to move every 0.5 seconds, so the timer stops at 1/2 second and then acts.
+  (if (>= A_TIMER 1/3)                          ; We want the player to move every 0.5 seconds, so the timer stops at 1/2 second and then acts.
       (begin (set! A_TIMER 0)                   ; Reset the timer, then check to see where the player is and move accordingly.
              (when (< PATH-POS (- (length PATH) 0))
                (move (- (send (list-ref PATH PATH-POS) getRow) (cdr player))
