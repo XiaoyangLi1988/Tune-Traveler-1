@@ -33,6 +33,11 @@
   (send ((get i 0) GRID) setWalk #f)
   (send ((get i (- GRID_SIZE 1)) GRID) setWalk #f))
 
+; Create a wall for the algorithm to find its way around.
+(map (lambda (row)
+       (send ((get row 6) GRID) setWalk #f)) 
+     '(4 5 6 7 8 9))
+
 (search GRID ((get (cdr start) (car start)) GRID) ((get (cdr goal) (car goal)) GRID))
 
 ; Render everything to the frame.
@@ -96,7 +101,9 @@
   (glColor3f 0.0 1.0 1.0)
   (glBegin GL_LINE_STRIP)
   (map (lambda (node)
-         (glVertex3f (send node getCol) (send node getRow) 0.0)) 
+         (glVertex3f (+ (* (send node getCol) TILE_SIZE) GRID_OFF (/ TILE_SIZE 2)) 
+                     (+ (* (send node getRow) TILE_SIZE) (/ TILE_SIZE 2)) 
+                     0.0)) 
        PATH)
   (glEnd))
 
