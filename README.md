@@ -30,8 +30,11 @@ Simply fork/clone this repository, or download the ZIP, to get the files. Then, 
 You sure can. Just create a text file with 15 rows of 15 characters. If you don't know what I mean by this, look at the levels that come with this repository. It is a good idea to put a border around the maze, though it is not required. Here is a key of the characters used.
 
 1 - Wall
+
 0 - Blank/Nothing
+
 S - Starting position.
+
 E - End position.
 
 Then go to "levels.rkt" and add the level to the "maps" list in the same way that the others were added and in "tune-traveler.rkt", change the "LEVEL" variable to the list index for your level (if your level is the 5th in the list, change it to 4).
