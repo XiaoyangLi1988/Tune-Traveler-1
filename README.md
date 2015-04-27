@@ -21,19 +21,19 @@ Adding these two scores together gives you the "cost" of moving to that node. Th
 ## What does it look like in action?
 I'm glad you asked that, because what is a project demonstration without pretty pictures to hold the reader's attention? Here are a few "mazes" that have been solved by the algorithm.
 
-A diagram of how the algorithm steps through the nodes in the grid and chooses the least F score.
+**A diagram of how the algorithm steps through the nodes in the grid and chooses the least F score.**
 
 ![A* Algorithm Diagram](images/aStarT6.jpg)
 
-Maze #1
+**Maze #1**
 
 ![Maze 1](images/tune-traveler_04.png)
 
-Maze #2
+**Maze #2**
 
 ![Maze 2](images/tune-traveler_06.png)
 
-Maze #3 (a maze with no solution)
+**Maze #3 (a maze with no solution)**
 
 ![Maze with No Solution](images/tune-traveler_05.png)
 
