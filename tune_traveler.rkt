@@ -9,6 +9,8 @@
 (require "tile.rkt")
 (require "levels.rkt")
 
+(define LEVEL 1)
+
 ; Used to create a one-dimensional array that represents a two-dimensional array.
 (define (createGrid rows cols)
   (let ([row 0]
@@ -28,7 +30,7 @@
 (define GRID (createGrid GRID_SIZE GRID_SIZE))
 
 ; Define the level to use for the algorithm.
-(buildMap GRID (list-ref maps 0))
+(buildMap GRID (list-ref maps LEVEL))
 
 ; Reset the player position. (weird bug, player will appear at (0,0) elsewise)
 (movePlayer (cdr start) (car start))
