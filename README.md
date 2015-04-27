@@ -21,7 +21,21 @@ Adding these two scores together gives you the "cost" of moving to that node. Th
 ## What does it look like in action?
 I'm glad you asked that, because what is a project demonstration without pretty pictures to hold the reader's attention? Here are a few "mazes" that have been solved by the algorithm.
 
-(put pictures here)
+**A diagram of how the algorithm steps through the nodes in the grid and chooses the least F score.**
+
+![A* Algorithm Diagram](images/aStarT6.jpg)
+
+**Maze #1**
+
+![Maze 1](images/tune-traveler_04.png)
+
+**Maze #2**
+
+![Maze 2](images/tune-traveler_06.png)
+
+**Maze #3 (a maze with no solution)**
+
+![Maze with No Solution](images/tune-traveler_05.png)
 
 ## How can I play with it?
 Simply fork/clone this repository, or download the ZIP, to get the files. Then, open "tune-traveler.rkt" in DrRacket. Assuming you have the RSound library installed, you're good to go. Just hit Run and watch!
@@ -30,8 +44,11 @@ Simply fork/clone this repository, or download the ZIP, to get the files. Then, 
 You sure can. Just create a text file with 15 rows of 15 characters. If you don't know what I mean by this, look at the levels that come with this repository. It is a good idea to put a border around the maze, though it is not required. Here is a key of the characters used.
 
 1 - Wall
+
 0 - Blank/Nothing
+
 S - Starting position.
+
 E - End position.
 
 Then go to "levels.rkt" and add the level to the "maps" list in the same way that the others were added and in "tune-traveler.rkt", change the "LEVEL" variable to the list index for your level (if your level is the 5th in the list, change it to 4).

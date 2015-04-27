@@ -6,7 +6,8 @@
 (define maps (list (file->lines "levels/level1.txt")
                    (file->lines "levels/level2.txt")
                    (file->lines "levels/level3.txt")
-                   (file->lines "levels/level4.txt")))
+                   (file->lines "levels/level4.txt")
+                   (file->lines "levels/level5.txt")))
 
 ; Checks to make sure the map in the file is a 15x15 grid.
 (define (validMap? m)
