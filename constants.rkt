@@ -7,7 +7,8 @@
 (define F_WIDTH 600)
 (define F_HEIGHT 600)
 (define GRID_SIZE 15)
-(define NEIGHBORS '((0 -1) (1 -1) (1 0) (1 1) (0 1) (-1 1) (-1 0) (-1 -1)))
+(define NEIGHBORS '((0 -1) (1 -1) (1 0) (1 1) (0 1) (-1 1) (-1 0) (-1 -1)))  ; Allow for horizontal, vertical and diagonal movements.
+;(define NEIGHBORS '((0 -1) (1 0) (0 1) (-1 0)))                               ; Allow for only vertical and horizontal movement.
 (define nil '())
 
 ; Globals
@@ -108,6 +109,30 @@
     (list-ref li (+ (* row GRID_SIZE) col)))
   h)
 
+; Check if the neighbor being examed is next to a neighbor that is unwalkable.
+(define (noNeighborWalls GRID t p)
+  (cond ([and (= (car p) -1) (= (cadr p) -1)]  ; Upper-left neighbor. Check tiles above and to the left of t.
+         (if (or (not (send ((get (+ (cadr p) (send t getRow)) (+ (car p) 1 (send t getCol))) GRID) isWalkable))
+                 (not (send ((get (+ (cadr p) 1 (send t getRow)) (+ (car p) (send t getCol))) GRID) isWalkable)))
+             #f
+             #t))
+        ([and (= (car p) 1) (= (cadr p) -1)]  ; Upper-right neighbor. Check tiles above and to the right of t.
+         (if (or (not (send ((get (+ (cadr p) (send t getRow)) (+ (- (car p) 1) (send t getCol))) GRID) isWalkable))
+                 (not (send ((get (+ (cadr p) 1 (send t getRow)) (+ (car p) (send t getCol))) GRID) isWalkable)))
+             #f
+             #t))
+        ([and (= (car p) -1) (= (cadr p) 1)]  ; Bottom-left neighbor. Check tiles below and to the left of t.
+         (if (or (not (send ((get (+ (- (cadr p) 1) (send t getRow)) (+ (car p) (send t getCol))) GRID) isWalkable))
+                 (not (send ((get (+ (cadr p) (send t getRow)) (+ (car p) 1 (send t getCol))) GRID) isWalkable)))
+             #f
+             #t))
+        ([and (= (car p) 1) (= (cadr p) 1)]  ; Bottom-right neighbor. Check tiles below and to the right of t.
+         (if (or (not (send ((get (+ (cadr p) (send t getRow)) (+ (- (car p) 1) (send t getCol))) GRID) isWalkable))
+                 (not (send ((get (+ (- (cadr p) 1) (send t getRow)) (+ (car p) (send t getCol))) GRID) isWalkable)))
+             #f
+             #t))
+        (else #t)))
+
 ; Get the neighbors of the given tile.
 (define (getNeighbors GRID t)
   (let ([ne '()])
@@ -116,16 +141,21 @@
            (let ([a (cons (+ (send t getRow) (car p)) (+ (send t getCol) (cadr p)))])
              ; Only get the walkable tiles.
              (when (and (validRowCol? (car a) (cdr a))
-                        (send ((get (car a) (cdr a)) GRID) isWalkable))
+                        (send ((get (car a) (cdr a)) GRID) isWalkable)
+                        (noNeighborWalls GRID t p)  ; Comment out to allow walking through corners.
+                        )
                (set! ne (append ne (list ((get (car a) (cdr a)) GRID)))))))
          NEIGHBORS)
     ne))
 
 ; Find the tile in the open list with the lowest F score.
 (define (lowestF open)
+  ; Recurse through the entire open list. Each time it encounters a 
+  ; tile with a lower F score, it overrides the current "lowest F tile".
   (define (lowestF-help open t)
     (cond ([empty? open] t)
-          ([< (send (car open) getF) (send t getF)] (lowestF-help (cdr open) (car open)))
+          ([< (send (car open) getF) (send t getF)] 
+           (lowestF-help (cdr open) (car open)))
           (else (lowestF-help (cdr open) t))))
   (lowestF-help open (car open)))
 
@@ -146,23 +176,17 @@
                (set! PATH (append PATH (list current)))
                (retrace-help))))
     (retrace-help)
-    (set! PATH (reverse PATH))))
-
-; Look through parents to find start.
-;(define (parent-ception C n)
-;  (if (= n 0)
-;      (begin (display "Row of Current Parent: ")
-;             (pretty-print (send C getRow))
-;             (display "Col of Current Parent: ")
-;             (pretty-print (send C getCol)))
-;      (parent-ception (send C getParent) (- n 1))))
+    (if (not (sameTile? (list-ref PATH 0) ((get (cdr goal) (car goal)) GRID)))
+        (begin (set! PATH '())
+               (display "No path could be found."))
+        (set! PATH (reverse PATH)))))
 
 ; Define the A* search function.
 (define (search GRID A B)
-  (let ([open nil]
-        [closed nil]
-        [current nil]
-        [neighbors nil])
+  (let ([open nil]        ; The open list, which contains tiles for the algorithm to consider as it walks through the "maze".
+        [closed nil]      ; The closed list, which contains tiles that have already been considered (traversed) and can be ignored.
+        [current nil]     ; The current tile.
+        [neighbors nil])  ; A list containing the neighbors of the current tile.
     (set! open (append open (list A)))                             ; Add the start tile to the open list.
     (define (searchLoop)
       (begin (set! current (lowestF open))                         ; Find the tile in the open list with the lowest F score.
@@ -172,24 +196,16 @@
                (begin (set! neighbors (getNeighbors GRID current))  ; Retrieve the 8 neighbor tiles surrounding the current tile. Un-walkable tiles excluded.
                       (map (lambda (t)                              ; Map over each neighbor tile...
                              (unless (member t closed)              ; Ignore tiles that are on the closed list... we've already "explored" them.
-                               ;                              (if (not (member t open))            ; If the tile is not yet on the open list, add it to the open list and compute its F score.
-                               ;                                  (begin (send t setG (compG current t))                   ; Compute the G score of the neighbor.
-                               ;                                         (send t setH (compH t B))                         ; Compute the H score of the neighbor.
-                               ;                                         (send t setF (compF (send t getG) (send t getH))) ; Compute the F score of the neighbor.
-                               ;                                         (send t setParent current)                        ; Set the parent of the neighbor to the current tile.
-                               ;                                         (set! open (append open (list t))))               ; Add the neighbor to the open list.
-                               ;                                  ; If it's on the open list, but not the closed list, see if it's a better path than the current tile.
-                               ;                                  ())
-                               (when (not (member t open))
-                                 (begin (send t setG (compG current t))                    ; Compute the G score of the neighbor.
+                               (when (not (member t open))          ; If the neighbor is not in the open list...
+                                 (begin (send t setG (compG current t))                   ; Compute the G score of the neighbor.
                                         (send t setH (compH t B))                         ; Compute the H score of the neighbor.
                                         (send t setF (compF (send t getG) (send t getH))) ; Compute the F score of the neighbor.
                                         (send t setParent current)                        ; Set the parent of the neighbor to the current tile.
-                                        (set! open (append open (list t)))))))
+                                        (set! open (append open (list t)))))))            ; Add the neighbor to the open list.
                            neighbors)
                       (unless (empty? open) (searchLoop))))))       ; If there are no more tiles in the open list, we're done searching.
-    (searchLoop)
-    (retrace GRID A current)))
+    (searchLoop)  ; Call the search procedure's main loop.
+    (retrace GRID A current)))  ; Retrace the steps from goal to start to find the path that the "player" takes.
 
 ; Used to move the player around the grid.
 (define (move rOff cOff)
