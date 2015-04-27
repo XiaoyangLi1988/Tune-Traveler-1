@@ -28,7 +28,11 @@
 (define GRID (createGrid GRID_SIZE GRID_SIZE))
 
 ; Define the level to use for the algorithm.
-(buildMap GRID (list-ref maps 1))
+(buildMap GRID (list-ref maps 0))
+
+; Reset the player position. (weird bug, player will appear at (0,0) elsewise)
+(movePlayer (cdr start) (car start))
+
 ; Call the search algorithm to generate the path.
 (search GRID ((get (cdr start) (car start)) GRID) ((get (cdr goal) (car goal)) GRID))
 
@@ -62,7 +66,7 @@
   (define r (cdr player))
   (define c (car player))
   (define s (/ TILE_SIZE 4))
-  (glColor3f 0.0 0.0 1.0)
+  (glColor3f 0.0 1.0 1.0)
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF s) (+ (* r TILE_SIZE) s) 0.0)
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE (- s)) (+ (* r TILE_SIZE) s) 0.0)
   (glVertex3f (+ (* c TILE_SIZE) GRID_OFF TILE_SIZE (- s)) (+ (* r TILE_SIZE) TILE_SIZE (- s)) 0.0)
